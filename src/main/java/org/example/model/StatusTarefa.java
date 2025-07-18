@@ -1,6 +1,6 @@
 package org.example.model;
 
-public enum StatusTarefas {
+public enum StatusTarefa {
     AGUARDANDO,
     INICIADA,
     ENCERRADA,
