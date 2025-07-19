@@ -43,4 +43,21 @@ public class UsuarioController {
                     .build();
         }
     }
+
+    @GET
+    @Path("/{id}")
+    public Response buscarUsuarioPorId(@PathParam("id") UUID id){
+            Usuario usuario = usuarioRepository.buscarPorId(id);
+
+            if(usuario != null){
+                return  Response.ok(usuario).build();
+            }else {
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("Usuário não encontrado para o ID: " + id)
+                        .build();
+            }
+    }
+
+
+
 }
