@@ -1,6 +1,6 @@
 package org.example.model;
 
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.UUID;
 
@@ -9,6 +9,7 @@ import java.util.UUID;
 public class Usuario implements Serializable {
 
     @Id
+    @Column(columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id = UUID.randomUUID();
 
     @Column(nullable = false)
@@ -19,9 +20,12 @@ public class Usuario implements Serializable {
 //    private List<Tarefa> tarefas;
 
     public Usuario(){
+        this.id = UUID.randomUUID();
     }
 
     public Usuario(String nome){
+        this();
+        this.nome = nome;
     }
 
     public UUID getId(){

@@ -1,8 +1,6 @@
 package org.example.model;
 
-import net.bytebuddy.asm.Advice;
-
-import javax.persistence.*;
+import jakarta.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDate;
 import java.util.List;
