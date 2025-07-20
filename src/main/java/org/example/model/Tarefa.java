@@ -35,7 +35,6 @@ public class Tarefa implements Serializable {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tarefa_pai_id")
-    @JsonbTransient
     private Tarefa tarefaPai;
 
     @OneToMany(mappedBy = "tarefaPai", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
