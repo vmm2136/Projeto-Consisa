@@ -38,7 +38,6 @@ public class Tarefa implements Serializable {
     private Tarefa tarefaPai;
 
     @OneToMany(mappedBy = "tarefaPai", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonbTransient
     private List<Tarefa> tarefasFilhas;
 
     public Tarefa(){

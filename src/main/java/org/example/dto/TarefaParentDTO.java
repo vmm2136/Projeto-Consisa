@@ -1,17 +1,21 @@
+// Exemplo de TarefaParentDTO (ajuste conforme suas necessidades)
 package org.example.dto;
 
-import org.example.model.Tarefa;
 import java.util.UUID;
 
 public class TarefaParentDTO {
     private UUID id;
-    private String nomeTarefa;
+    private String nomeTarefa; // Adicione campos que você realmente precisa do pai
 
     public TarefaParentDTO() {}
 
-    public TarefaParentDTO(Tarefa tarefa) {
-        this.id = tarefa.getId();
-        this.nomeTarefa = tarefa.getNomeTarefa();
+    public TarefaParentDTO(org.example.model.Tarefa tarefaPai) {
+        this.id = tarefaPai.getId();
+        // Acessar `tarefaPai.getNomeTarefa()` aqui pode causar LI Exception
+        // se `nomeTarefa` não estiver mapeado EAGERLY ou se o proxy não for inicializado
+        // antes de passar para o DTO.
+        // O ideal é que o `buscarPorId` ou `update` no repositório já tenha carregado isso.
+        this.nomeTarefa = tarefaPai.getNomeTarefa(); // Se precisar do nome do pai
     }
 
     public UUID getId() { return id; }

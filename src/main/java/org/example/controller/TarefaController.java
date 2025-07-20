@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+
 @Path("/tarefas")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -32,11 +33,35 @@ public class TarefaController {
     @POST
     public Response criarTarefa(@Valid Tarefa tarefa){
         try{
+            if (tarefa.getUsuarioResponsavel() != null && tarefa.getUsuarioResponsavel().getId() != null) {
+                if (usuarioRepository.buscarPorId(tarefa.getUsuarioResponsavel().getId()) == null) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity("Usuário responsável inválido ou não encontrado.")
+                            .build();
+                }
+            }
+            if (tarefa.getTarefaPai() != null && tarefa.getTarefaPai().getId() != null) {
+                if (tarefaRepository.buscarPorId(tarefa.getTarefaPai().getId()) == null) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity("Tarefa pai inválida ou não encontrada.")
+                            .build();
+                }
+            }
+
             Tarefa tarefaCriada = tarefaRepository.criar(tarefa);
-            return Response.status(Response.Status.CREATED).entity(tarefaCriada).build();
-        }catch (ConstraintDeclarationException e){
+            TarefaResponseDTO responseDTO = new TarefaResponseDTO(tarefaCriada);
+            return Response.status(Response.Status.CREATED).entity(responseDTO).build();
+        }catch (IllegalArgumentException e){
+            return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
+        }
+        catch (ConstraintDeclarationException e){
             StringBuilder mensagemErro = new StringBuilder("Erro de validação: ").append(e.getMessage());
             return Response.status(Response.Status.BAD_REQUEST).entity(mensagemErro.toString()).build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Erro ao criar tarefa: " + e.getMessage())
+                    .build();
         }
     }
 
@@ -44,7 +69,10 @@ public class TarefaController {
     public Response buscarTarefas(){
         try{
             List<Tarefa> tarefas = tarefaRepository.buscarTarefasPais();
-            return Response.ok(tarefas).build();
+            List<TarefaResponseDTO> responseDTOs = tarefas.stream()
+                    .map(TarefaResponseDTO::new)
+                    .collect(Collectors.toList());
+            return Response.ok(responseDTOs).build();
         }catch (Exception e){
             e.printStackTrace();
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -74,7 +102,7 @@ public class TarefaController {
     @Path("/{id}")
     public Response atualizarTarefa(@PathParam("id") UUID id, Tarefa tarefaAtualizacao) {
         try {
-            Tarefa tarefaExistente = tarefaRepository.buscarPorId(id);
+            Tarefa tarefaExistente = tarefaRepository.buscarPorId(id); // Já com FETCH JOIN
 
             if (tarefaExistente == null) {
                 return Response.status(Response.Status.NOT_FOUND)
@@ -82,7 +110,6 @@ public class TarefaController {
                         .build();
             }
 
-            // Atualizar o nome da tarefa
             if (tarefaAtualizacao.getNomeTarefa() != null) {
                 if (tarefaAtualizacao.getNomeTarefa().trim().isEmpty()) {
                     return Response.status(Response.Status.BAD_REQUEST)
@@ -92,12 +119,10 @@ public class TarefaController {
                 tarefaExistente.setNomeTarefa(tarefaAtualizacao.getNomeTarefa());
             }
 
-            // Atualizar a data de inicio (quando definido o status iniciada)
             if (tarefaAtualizacao.getDataInicio() != null) {
                 tarefaExistente.setDataInicio(tarefaAtualizacao.getDataInicio());
             }
 
-            // Atualizar a data de fim
             if (tarefaAtualizacao.getDataFim() != null) {
                 tarefaExistente.setDataFim(tarefaAtualizacao.getDataFim());
             }
@@ -110,21 +135,20 @@ public class TarefaController {
                 }
             }
 
-            // Atualizar o usuário responsável
             if (tarefaAtualizacao.getUsuarioResponsavel() != null) {
-
-                 if (tarefaAtualizacao.getUsuarioResponsavel().getId() == null ||
-                     usuarioRepository.buscarPorId(tarefaAtualizacao.getUsuarioResponsavel().getId()) == null) {
-                     return Response.status(Response.Status.BAD_REQUEST)
-                             .entity("Usuário responsável inválido ou não encontrado.")
-                             .build();
-                 }
-                tarefaExistente.setUsuarioResponsavel(tarefaAtualizacao.getUsuarioResponsavel());
-            } else if (tarefaAtualizacao.getUsuarioResponsavel() == null && tarefaAtualizacao.getUsuarioResponsavel() != null) {
-                tarefaExistente.setUsuarioResponsavel(null);
+                UUID usuarioId = tarefaAtualizacao.getUsuarioResponsavel().getId();
+                if (usuarioId == null) {
+                    tarefaExistente.setUsuarioResponsavel(null);
+                } else {
+                    Usuario usuarioGerenciado = usuarioRepository.buscarPorId(usuarioId);
+                    if (usuarioGerenciado == null) {
+                        return Response.status(Response.Status.BAD_REQUEST)
+                                .entity("Usuário responsável inválido ou não encontrado.")
+                                .build();
+                    }
+                    tarefaExistente.setUsuarioResponsavel(usuarioGerenciado);
+                }
             }
-
-            // Atualizar o status
             if (tarefaAtualizacao.getStatusTarefa() != null) {
                 try {
                     StatusTarefa.valueOf(tarefaAtualizacao.getStatusTarefa().name());
@@ -135,27 +159,31 @@ public class TarefaController {
                             .build();
                 }
             }
-
-            // Atualizar o id_tarefa_pai
             if (tarefaAtualizacao.getTarefaPai() != null) {
-                if (tarefaAtualizacao.getTarefaPai().getId() == null ||
-                        tarefaRepository.buscarPorId(tarefaAtualizacao.getTarefaPai().getId()) == null) {
-                    return Response.status(Response.Status.BAD_REQUEST)
-                            .entity("Tarefa pai inválida ou não encontrada.")
-                            .build();
+                UUID newTarefaPaiId = tarefaAtualizacao.getTarefaPai().getId();
+
+                if (newTarefaPaiId == null) {
+                    tarefaExistente.setTarefaPai(null);
+                } else {
+                    if (Objects.equals(newTarefaPaiId, id)) {
+                        return Response.status(Response.Status.BAD_REQUEST)
+                                .entity("Uma tarefa não pode ser sua própria tarefa pai.")
+                                .build();
+                    }
+                    Tarefa novaTarefaPai = tarefaRepository.buscarPorId(newTarefaPaiId);
+                    if (novaTarefaPai == null) {
+                        return Response.status(Response.Status.BAD_REQUEST)
+                                .entity("Tarefa pai inválida ou não encontrada.")
+                                .build();
+                    }
+                    tarefaExistente.setTarefaPai(novaTarefaPai);
                 }
-                if (Objects.equals(tarefaAtualizacao.getTarefaPai().getId(), id)) {
-                    return Response.status(Response.Status.BAD_REQUEST)
-                            .entity("Uma tarefa não pode ser sua própria tarefa pai.")
-                            .build();
-                }
-                tarefaExistente.setTarefaPai(tarefaAtualizacao.getTarefaPai());
-            } else if (tarefaAtualizacao.getTarefaPai() == null && tarefaAtualizacao.getTarefaPai() != null) {
-                tarefaExistente.setTarefaPai(null);
             }
 
             Tarefa tarefaAtualizada = tarefaRepository.atualizar(tarefaExistente);
-            return Response.ok(tarefaAtualizada).build();
+
+            TarefaResponseDTO responseDTO = new TarefaResponseDTO(tarefaAtualizada);
+            return Response.ok(responseDTO).build();
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -165,17 +193,17 @@ public class TarefaController {
         }
     }
 
-    @DELETE
-    @Path("/{id}")
-    public Response deletarTarefa(@PathParam("id") UUID id) {
-        try {
-            tarefaRepository.delete(id);
-            return Response.noContent().build();
-        } catch (Exception e) {
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Erro ao deletar a tarefa: " + e.getMessage())
-                    .build();
-        }
-    }
-
+//    @DELETE
+//    @Path("/{id}")
+//    public Response deletarTarefa(@PathParam("id") UUID id) {
+//        try {
+//            tarefaRepository.(id);
+//            return Response.noContent().build();
+//        } catch (Exception e) {
+//            e.printStackTrace(); // Adicione e.printStackTrace() para depuração
+//            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+//                    .entity("Erro ao deletar a tarefa: " + e.getMessage())
+//                    .build();
+//        }
+//    }
 }

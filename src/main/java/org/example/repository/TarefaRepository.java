@@ -1,61 +1,102 @@
 package org.example.repository;
 
-import jakarta.ejb.Stateless;
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import org.example.model.StatusTarefa;
+import jakarta.transaction.Transactional;
 import org.example.model.Tarefa;
+import org.example.model.Usuario;
+
 import java.util.List;
 import java.util.UUID;
 
-@Stateless
-public class TarefaRepository {
+@ApplicationScoped
 
-    @PersistenceContext(unitName = "ProjetoConsisaPU")
+    public class TarefaRepository {
+        @PersistenceContext
     private EntityManager em;
 
-    public Tarefa criar(Tarefa tarefa){
+    @Transactional
+    public Tarefa criar(Tarefa tarefa) {
+        if (tarefa.getTarefaPai() != null && tarefa.getTarefaPai().getId() != null) {
+            Tarefa tarefaPaiGerenciada = em.find(Tarefa.class, tarefa.getTarefaPai().getId());
+            if (tarefaPaiGerenciada == null) {
+                throw new IllegalArgumentException("Tarefa pai não encontrada.");
+            }
+            tarefa.setTarefaPai(tarefaPaiGerenciada);
+        }
+        if (tarefa.getUsuarioResponsavel() != null && tarefa.getUsuarioResponsavel().getId() != null) {
+            Usuario usuarioGerenciado = em.find(Usuario.class, tarefa.getUsuarioResponsavel().getId());
+            if (usuarioGerenciado == null) {
+                throw new IllegalArgumentException("Usuário responsável não encontrado.");
+            }
+            tarefa.setUsuarioResponsavel(usuarioGerenciado);
+        }
+
         em.persist(tarefa);
+        em.flush();
+
+        if (tarefa.getUsuarioResponsavel() != null) {
+            tarefa.getUsuarioResponsavel().getNome();
+        }
+
+        if (tarefa.getTarefaPai() != null) {
+            tarefa.getTarefaPai().getNomeTarefa();
+        }
         return tarefa;
-    }
-    public List<Tarefa> buscarTarefasPais(){
-        return em.createQuery("SELECT t FROM Tarefa t WHERE t.tarefaPai IS NULL", Tarefa.class)
-                .getResultList();
-    }
-
-    public List<Tarefa> buscarTarefasFilhas(UUID tarefaPaiId){
-        List<Tarefa> filhas = em.createQuery("SELECT t FROM Tarefa t WHERE t.tarefaPai.id = :tarefaPaiId", Tarefa.class)
-                .setParameter("tarefaPaiId", tarefaPaiId)
-                .getResultList();
-
-        for (Tarefa filha : filhas) {
-            if (filha.getUsuarioResponsavel() != null) {
-                filha.getUsuarioResponsavel().getNome();
-            }
-            if (filha.getTarefasFilhas() != null) {
-                filha.getTarefasFilhas().size();
-
-            }
-            if (filha.getTarefaPai() != null) {
-                filha.getTarefaPai().getNomeTarefa();
-            }
-        }
-        return filhas;
-    }
-
-    public Tarefa atualizar(Tarefa tarefa) {
-        return em.merge(tarefa);
-    }
-
-    public void delete(UUID id) {
-        Tarefa tarefaParaRemover = em.find(Tarefa.class, id);
-
-        if (tarefaParaRemover != null) {
-            em.remove(tarefaParaRemover);
-        }
     }
 
     public Tarefa buscarPorId(UUID id) {
-        return em.find(Tarefa.class, id);
+        try {
+            return em.createQuery(
+                            "SELECT t FROM Tarefa t " +
+                                    "LEFT JOIN FETCH t.usuarioResponsavel ur " +
+                                    "LEFT JOIN FETCH t.tarefaPai tp " +
+                                    "LEFT JOIN FETCH t.tarefasFilhas tf " +
+                                    "WHERE t.id = :id", Tarefa.class)
+                    .setParameter("id", id)
+                    .getSingleResult();
+        } catch (jakarta.persistence.NoResultException e) {
+            return null;
+        }
+    }
+
+    @Transactional
+    public Tarefa atualizar(Tarefa tarefa) {
+        Tarefa mergedTarefa = em.merge(tarefa);
+        em.flush();
+
+        if (mergedTarefa.getUsuarioResponsavel() != null) {
+            mergedTarefa.getUsuarioResponsavel().getNome();
+        }
+        if (mergedTarefa.getTarefaPai() != null) {
+            mergedTarefa.getTarefaPai().getNomeTarefa();
+        }
+        if (mergedTarefa.getTarefasFilhas() != null) {
+            mergedTarefa.getTarefasFilhas().size();
+            for (Tarefa filha : mergedTarefa.getTarefasFilhas()) {
+                filha.getNomeTarefa();
+            }
+        }
+        return mergedTarefa;
+    }
+
+    public List<Tarefa> buscarTarefasPais() {
+        return em.createQuery(
+                        "SELECT DISTINCT t FROM Tarefa t " +
+                                "LEFT JOIN FETCH t.usuarioResponsavel ur " +
+                                "LEFT JOIN FETCH t.tarefasFilhas tf " +
+                                "WHERE t.tarefaPai IS NULL", Tarefa.class)
+                .getResultList();
+    }
+
+    public List<Tarefa> buscarTarefasFilhas(UUID tarefaPaiId) {
+        return em.createQuery(
+                        "SELECT DISTINCT t FROM Tarefa t " +
+                                "LEFT JOIN FETCH t.usuarioResponsavel ur " +
+                                "LEFT JOIN FETCH t.tarefaPai tp " +
+                                "WHERE t.tarefaPai.id = :tarefaPaiId", Tarefa.class)
+                .setParameter("tarefaPaiId", tarefaPaiId)
+                .getResultList();
     }
 }
