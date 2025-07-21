@@ -5,7 +5,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.example.dto.TarefaResponseDTO;
-import org.example.model.StatusTarefa;
+import org.example.dto.UsuarioResponseDTO;
 import org.example.model.Tarefa;
 import org.example.model.Usuario;
 import org.example.repository.TarefaRepository;
@@ -14,8 +14,8 @@ import org.example.repository.UsuarioRepository;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.Valid;
 
+import java.time.LocalDate;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -72,7 +72,14 @@ public class TarefaController {
             List<TarefaResponseDTO> responseDTOs = tarefas.stream()
                     .map(TarefaResponseDTO::new)
                     .collect(Collectors.toList());
-            return Response.ok(responseDTOs).build();
+
+            if (responseDTOs != null && !responseDTOs.isEmpty()) {
+                return Response.ok(responseDTOs).build();
+            } else {
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("Não existem tarefas principais cadastradas!")
+                        .build();
+            }
         }catch (Exception e){
             e.printStackTrace();
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -83,7 +90,7 @@ public class TarefaController {
 
     @GET
     @Path("/{tarefaPaiId}/filhas")
-    public Response getTarefasFilhas(@PathParam("tarefaPaiId") UUID tarefaPaiId) {
+    public Response buscarTarefasFilhas(@PathParam("tarefaPaiId") UUID tarefaPaiId) {
         try {
             List<Tarefa> tarefasFilhas = tarefaRepository.buscarTarefasFilhas(tarefaPaiId);
             List<TarefaResponseDTO> responseDTOs = tarefasFilhas.stream()
@@ -98,112 +105,135 @@ public class TarefaController {
         }
     }
 
+
     @PATCH
-    @Path("/{id}")
-    public Response atualizarTarefa(@PathParam("id") UUID id, Tarefa tarefaAtualizacao) {
+    @Path("/{id}/nome")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response atualizarNomeTarefa(@PathParam("id") UUID idTarefa, TarefaResponseDTO tarefaResponseDTO) {
+
+        if (tarefaResponseDTO == null || tarefaResponseDTO.getNomeTarefa() == null || tarefaResponseDTO.getNomeTarefa().trim().isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("O nome da tarefa não pode ser nulo ou vazio.")
+                    .build();
+        }
+
+        Tarefa tarefaOld = tarefaRepository.buscarPorId(idTarefa);
+        tarefaOld.setNomeTarefa(tarefaResponseDTO.getNomeTarefa());
+
         try {
-            Tarefa tarefaExistente = tarefaRepository.buscarPorId(id); // Já com FETCH JOIN
-
-            if (tarefaExistente == null) {
-                return Response.status(Response.Status.NOT_FOUND)
-                        .entity("Tarefa com ID " + id + " não encontrada.")
-                        .build();
-            }
-
-            if (tarefaAtualizacao.getNomeTarefa() != null) {
-                if (tarefaAtualizacao.getNomeTarefa().trim().isEmpty()) {
-                    return Response.status(Response.Status.BAD_REQUEST)
-                            .entity("O nome da tarefa não pode ser vazio.")
-                            .build();
-                }
-                tarefaExistente.setNomeTarefa(tarefaAtualizacao.getNomeTarefa());
-            }
-
-            if (tarefaAtualizacao.getDataInicio() != null) {
-                tarefaExistente.setDataInicio(tarefaAtualizacao.getDataInicio());
-            }
-
-            if (tarefaAtualizacao.getDataFim() != null) {
-                tarefaExistente.setDataFim(tarefaAtualizacao.getDataFim());
-            }
-
-            if (tarefaExistente.getDataInicio() != null && tarefaExistente.getDataFim() != null) {
-                if (tarefaExistente.getDataFim().isBefore(tarefaExistente.getDataInicio())) {
-                    return Response.status(Response.Status.BAD_REQUEST)
-                            .entity("A data de fim não pode ser anterior à data de início.")
-                            .build();
-                }
-            }
-
-            if (tarefaAtualizacao.getUsuarioResponsavel() != null) {
-                UUID usuarioId = tarefaAtualizacao.getUsuarioResponsavel().getId();
-                if (usuarioId == null) {
-                    tarefaExistente.setUsuarioResponsavel(null);
-                } else {
-                    Usuario usuarioGerenciado = usuarioRepository.buscarPorId(usuarioId);
-                    if (usuarioGerenciado == null) {
-                        return Response.status(Response.Status.BAD_REQUEST)
-                                .entity("Usuário responsável inválido ou não encontrado.")
-                                .build();
-                    }
-                    tarefaExistente.setUsuarioResponsavel(usuarioGerenciado);
-                }
-            }
-            if (tarefaAtualizacao.getStatusTarefa() != null) {
-                try {
-                    StatusTarefa.valueOf(tarefaAtualizacao.getStatusTarefa().name());
-                    tarefaExistente.setStatusTarefa(tarefaAtualizacao.getStatusTarefa());
-                } catch (IllegalArgumentException e) {
-                    return Response.status(Response.Status.BAD_REQUEST)
-                            .entity("Status da tarefa inválido: " + tarefaAtualizacao.getStatusTarefa())
-                            .build();
-                }
-            }
-            if (tarefaAtualizacao.getTarefaPai() != null) {
-                UUID newTarefaPaiId = tarefaAtualizacao.getTarefaPai().getId();
-
-                if (newTarefaPaiId == null) {
-                    tarefaExistente.setTarefaPai(null);
-                } else {
-                    if (Objects.equals(newTarefaPaiId, id)) {
-                        return Response.status(Response.Status.BAD_REQUEST)
-                                .entity("Uma tarefa não pode ser sua própria tarefa pai.")
-                                .build();
-                    }
-                    Tarefa novaTarefaPai = tarefaRepository.buscarPorId(newTarefaPaiId);
-                    if (novaTarefaPai == null) {
-                        return Response.status(Response.Status.BAD_REQUEST)
-                                .entity("Tarefa pai inválida ou não encontrada.")
-                                .build();
-                    }
-                    tarefaExistente.setTarefaPai(novaTarefaPai);
-                }
-            }
-
-            Tarefa tarefaAtualizada = tarefaRepository.atualizar(tarefaExistente);
-
-            TarefaResponseDTO responseDTO = new TarefaResponseDTO(tarefaAtualizada);
-            return Response.ok(responseDTO).build();
-
+            tarefaRepository.atualizar(tarefaOld);
+            return Response.ok(tarefaOld).build();
         } catch (Exception e) {
-            e.printStackTrace();
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Erro ao atualizar a tarefa: " + e.getMessage())
+                    .entity("Erro ao atualizar o nome da tarefa: " + e.getMessage())
                     .build();
         }
     }
 
-//    @DELETE
-//    @Path("/{id}")
-//    public Response deletarTarefa(@PathParam("id") UUID id) {
-//        try {
-//            tarefaRepository.(id);
-//            return Response.noContent().build();
-//        } catch (Exception e) {
-//            e.printStackTrace(); // Adicione e.printStackTrace() para depuração
-//            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-//                    .entity("Erro ao deletar a tarefa: " + e.getMessage())
-//                    .build();
-//        }
-//    }
+    @PATCH
+    @Path("/{id}/data-inicio")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response atualizarDataInicioTarefa(@PathParam("id") UUID idTarefa,TarefaResponseDTO tarefaResponseDTO) {
+
+        if (tarefaResponseDTO == null || tarefaResponseDTO.getDataInicio() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("A data de início não pode ser nula.")
+                    .build();
+        }
+
+        Tarefa tarefaOld = tarefaRepository.buscarPorId(idTarefa);
+        LocalDate novaDataInicio = tarefaResponseDTO.getDataInicio();
+        tarefaOld.setDataInicio(novaDataInicio);
+
+
+        try {
+            tarefaRepository.atualizar(tarefaOld);
+            return Response.ok(tarefaOld).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Erro ao atualizar a data de início da tarefa: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    @PATCH
+    @Path("/{id}/data-fim")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response atualizarDataFimTarefa(@PathParam("id") UUID idTarefa,TarefaResponseDTO tarefaResponseDTO) {
+
+        if (tarefaResponseDTO == null || tarefaResponseDTO.getDataFim() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("A data de fim não pode ser nula.")
+                    .build();
+        }
+
+        Tarefa tarefaOld = tarefaRepository.buscarPorId(idTarefa);
+        LocalDate novaDataFim = tarefaResponseDTO.getDataFim();
+        tarefaOld.setDataFim(novaDataFim);
+
+        try {
+            tarefaRepository.atualizar(tarefaOld);
+            return Response.ok(tarefaOld).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Erro ao atualizar a data de fim da tarefa: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    @PATCH
+    @Path("/{id}/usuario-responsavel")
+    public Response atualizarUsuarioResponsavel(@PathParam("id") UUID idTarefa, UsuarioResponseDTO usuarioResponsavelPatch) {
+        if (usuarioResponsavelPatch == null || usuarioResponsavelPatch.getIdUsuarioResponsavel() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("O ID do usuário responsável é obrigatório no corpo da requisição.")
+                    .build();
+        }
+
+        Tarefa tarefaOld = tarefaRepository.buscarPorId(idTarefa);
+        Usuario usuario = usuarioRepository.buscarPorId(usuarioResponsavelPatch.getIdUsuarioResponsavel());
+        if(usuario == null){
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity("Usuário selecionado não existe na base de dados!")
+                    .build();
+        }
+        tarefaOld.setUsuarioResponsavel(usuario);
+
+        try {
+            tarefaRepository.atualizar(tarefaOld);
+            return Response.ok(tarefaOld).build();
+
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Erro interno ao atualizar o usuário responsável da tarefa.")
+                    .build();
+        }
+    }
+
+    @DELETE
+    @Path("/{id}")
+    public Response deletarTarefa(@PathParam("id") UUID id) {
+        try {
+            Tarefa tarefaExistente = tarefaRepository.buscarPorId(id);
+            if (tarefaExistente == null) {
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("Tarefa com ID " + id + " não encontrada para exclusão.")
+                        .build();
+            }
+
+            tarefaRepository.deletar(id);
+            return Response.noContent().build();
+
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("ID de tarefa inválido.").build();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Erro ao deletar tarefa: " + e.getMessage())
+                    .build();
+        }
+    }
 }

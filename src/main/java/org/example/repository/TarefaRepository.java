@@ -72,6 +72,12 @@ import java.util.UUID;
         if (mergedTarefa.getTarefaPai() != null) {
             mergedTarefa.getTarefaPai().getNomeTarefa();
         }
+        if (mergedTarefa.getDataInicio() != null) {
+            mergedTarefa.getDataInicio();
+        }
+        if (mergedTarefa.getDataFim() != null) {
+            mergedTarefa.getDataFim();
+        }
         if (mergedTarefa.getTarefasFilhas() != null) {
             mergedTarefa.getTarefasFilhas().size();
             for (Tarefa filha : mergedTarefa.getTarefasFilhas()) {
@@ -98,5 +104,13 @@ import java.util.UUID;
                                 "WHERE t.tarefaPai.id = :tarefaPaiId", Tarefa.class)
                 .setParameter("tarefaPaiId", tarefaPaiId)
                 .getResultList();
+    }
+
+    @Transactional
+    public void deletar(UUID id) {
+        Tarefa tarefa = em.find(Tarefa.class, id); // Busca a tarefa pelo ID
+        if (tarefa != null) {
+            em.remove(tarefa); // Remove a tarefa, e com CascadeType.ALL/orphanRemoval, as subtarefas serão removidas.
+        }
     }
 }

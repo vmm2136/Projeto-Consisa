@@ -9,6 +9,7 @@ import jakarta.ws.rs.core.Response;
 import org.example.model.Usuario;
 import org.example.repository.UsuarioRepository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Path("/usuarios")
@@ -27,12 +28,9 @@ public class UsuarioController {
             if (usuario.getNome().equals("")){
                 return Response.status(Response.Status.FORBIDDEN).entity("É necessário informar o nome do usuário!").build();
             }
-            if (usuario.getNome() instanceof String){
-                return Response.status(Response.Status.FORBIDDEN).entity("O nome do usuário não pode conter números!").build();
-            }
 
             Usuario usuarioCriado = usuarioRepository.criar(usuario);
-            return Response.status(Response.Status.CREATED).entity("Usuario Criado!" + usuarioCriado.getNome()).build();
+            return Response.status(Response.Status.CREATED).entity(usuarioCriado).build();
 
         }catch (Exception e){
 
@@ -54,6 +52,18 @@ public class UsuarioController {
             }else {
                 return Response.status(Response.Status.NOT_FOUND)
                         .entity("Usuário não encontrado para o ID: " + id)
+                        .build();
+            }
+    }
+@GET
+public Response buscarUsuarios(){
+            List<Usuario> usuarios = usuarioRepository.listarUsuarios();
+
+            if(usuarios != null){
+                return  Response.ok(usuarios).build();
+            }else {
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("Não existe usuários cadastrados!")
                         .build();
             }
     }
