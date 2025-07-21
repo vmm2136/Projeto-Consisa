@@ -22,3 +22,9 @@ Após estes passos, pode clicar em Apply e OK.
 Com isso, ja estará configurado o servidor e quando clicar em iniciar ou depurar, irá rodar o servidor junto:
 
 <img width="784" height="102" alt="image" src="https://github.com/user-attachments/assets/740922a5-9082-4f19-9bc6-de22fb3be182" />
+
+
+
+
+
+Para o banco de dados, é necessário instalar o postgreSQL na máquina, criar uma database e restaurar nela, o backup que tembém está no repositório.
