@@ -33,11 +33,11 @@ public class Tarefa implements Serializable {
     @Column(name = "status_tarefa", nullable = false)
     private StatusTarefa statusTarefa = StatusTarefa.AGUARDANDO;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "tarefa_pai_id")
     private Tarefa tarefaPai;
 
-    @OneToMany(mappedBy = "tarefaPai", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "tarefaPai", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JsonbTransient
     private List<Tarefa> tarefasFilhas;
 

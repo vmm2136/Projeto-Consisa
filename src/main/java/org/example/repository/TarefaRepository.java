@@ -96,21 +96,11 @@ import java.util.UUID;
                 .getResultList();
     }
 
-    public List<Tarefa> buscarTarefasFilhas(UUID tarefaPaiId) {
-        return em.createQuery(
-                        "SELECT DISTINCT t FROM Tarefa t " +
-                                "LEFT JOIN FETCH t.usuarioResponsavel ur " +
-                                "LEFT JOIN FETCH t.tarefaPai tp " +
-                                "WHERE t.tarefaPai.id = :tarefaPaiId", Tarefa.class)
-                .setParameter("tarefaPaiId", tarefaPaiId)
-                .getResultList();
-    }
-
     @Transactional
     public void deletar(UUID id) {
-        Tarefa tarefa = em.find(Tarefa.class, id); // Busca a tarefa pelo ID
+        Tarefa tarefa = em.find(Tarefa.class, id);
         if (tarefa != null) {
-            em.remove(tarefa); // Remove a tarefa, e com CascadeType.ALL/orphanRemoval, as subtarefas serão removidas.
+            em.remove(tarefa);
         }
     }
 }

@@ -6,6 +6,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.example.dto.TarefaResponseDTO;
 import org.example.dto.UsuarioResponseDTO;
+import org.example.model.StatusTarefa;
 import org.example.model.Tarefa;
 import org.example.model.Usuario;
 import org.example.repository.TarefaRepository;
@@ -88,24 +89,6 @@ public class TarefaController {
         }
     }
 
-    @GET
-    @Path("/{tarefaPaiId}/filhas")
-    public Response buscarTarefasFilhas(@PathParam("tarefaPaiId") UUID tarefaPaiId) {
-        try {
-            List<Tarefa> tarefasFilhas = tarefaRepository.buscarTarefasFilhas(tarefaPaiId);
-            List<TarefaResponseDTO> responseDTOs = tarefasFilhas.stream()
-                    .map(TarefaResponseDTO::new)
-                    .collect(Collectors.toList());
-            return Response.ok(responseDTOs).build();
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Erro ao buscar tarefas filhas: " + e.getMessage())
-                    .build();
-        }
-    }
-
-
     @PATCH
     @Path("/{id}/nome")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -123,7 +106,38 @@ public class TarefaController {
 
         try {
             tarefaRepository.atualizar(tarefaOld);
-            return Response.ok(tarefaOld).build();
+            Tarefa tarefaNew = tarefaRepository.buscarPorId(idTarefa);
+            TarefaResponseDTO responseDTO = new TarefaResponseDTO(tarefaNew);
+            return Response.ok(responseDTO).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Erro ao atualizar o nome da tarefa: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    @PATCH
+    @Path("/{id}/status")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response atualizarStatusTarefa(@PathParam("id") UUID idTarefa, TarefaResponseDTO tarefaResponseDTO) {
+        if (tarefaResponseDTO == null || tarefaResponseDTO.getStatusTarefa() == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("O nome da tarefa não pode ser nulo ou vazio.")
+                    .build();
+        }
+
+        Tarefa tarefaOld = tarefaRepository.buscarPorId(idTarefa);
+        tarefaOld.setStatusTarefa(tarefaResponseDTO.getStatusTarefa());
+
+        if(tarefaResponseDTO.getStatusTarefa().equals(StatusTarefa.INICIADA))
+            tarefaOld.setDataInicio(LocalDate.now());
+
+        try {
+            tarefaRepository.atualizar(tarefaOld);
+            Tarefa tarefaNew = tarefaRepository.buscarPorId(idTarefa);
+            TarefaResponseDTO responseDTO = new TarefaResponseDTO(tarefaNew);
+            return Response.ok(responseDTO).build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Erro ao atualizar o nome da tarefa: " + e.getMessage())
@@ -150,7 +164,9 @@ public class TarefaController {
 
         try {
             tarefaRepository.atualizar(tarefaOld);
-            return Response.ok(tarefaOld).build();
+            Tarefa tarefaNew = tarefaRepository.buscarPorId(idTarefa);
+            TarefaResponseDTO responseDTO = new TarefaResponseDTO(tarefaNew);
+            return Response.ok(responseDTO).build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Erro ao atualizar a data de início da tarefa: " + e.getMessage())
@@ -176,7 +192,9 @@ public class TarefaController {
 
         try {
             tarefaRepository.atualizar(tarefaOld);
-            return Response.ok(tarefaOld).build();
+            Tarefa tarefaNew = tarefaRepository.buscarPorId(idTarefa);
+            TarefaResponseDTO responseDTO = new TarefaResponseDTO(tarefaNew);
+            return Response.ok(responseDTO).build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Erro ao atualizar a data de fim da tarefa: " + e.getMessage())
@@ -204,8 +222,9 @@ public class TarefaController {
 
         try {
             tarefaRepository.atualizar(tarefaOld);
-            return Response.ok(tarefaOld).build();
-
+            Tarefa tarefaNew = tarefaRepository.buscarPorId(idTarefa);
+            TarefaResponseDTO responseDTO = new TarefaResponseDTO(tarefaNew);
+            return Response.ok(responseDTO).build();
         } catch (Exception e) {
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("Erro interno ao atualizar o usuário responsável da tarefa.")
