@@ -1,0 +1,24 @@
+CREATE TABLE IF NOT EXISTS public.tarefas
+(
+    id uuid NOT NULL,
+    data_fim date,
+    data_inicio date,
+    nome_tarefa character varying(255) COLLATE pg_catalog."default" NOT NULL,
+    status_tarefa character varying(255) COLLATE pg_catalog."default" NOT NULL,
+    tarefa_pai_id uuid,
+    usuario_responsavel uuid,
+    CONSTRAINT tarefas_pkey PRIMARY KEY (id),
+    CONSTRAINT fk3avxho2nfvjws1rir5gmkqv2t FOREIGN KEY (tarefa_pai_id)
+        REFERENCES public.tarefas (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT fkp2uc37355k64di02sime6anls FOREIGN KEY (usuario_responsavel)
+        REFERENCES public.usuarios (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.tarefas
+    OWNER to postgres;

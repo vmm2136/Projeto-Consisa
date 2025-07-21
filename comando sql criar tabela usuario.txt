@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS public.usuarios
+(
+    id uuid NOT NULL,
+    nome character varying(255) COLLATE pg_catalog."default" NOT NULL,
+    CONSTRAINT usuarios_pkey PRIMARY KEY (id)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS public.usuarios
+    OWNER to postgres;
